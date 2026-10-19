@@ -1,0 +1,298 @@
+// Copyright (c) 2013-2015 Vittorio Romeo
+// License: Academic Free License ("AFL") v. 3.0
+// AFL License page: http://opensource.org/licenses/AFL-3.0
+
+#ifndef SSVU_CORE_STRING_STRINGIFIER
+#define SSVU_CORE_STRING_STRINGIFIER
+
+#include "SSVUtils/Core/String/StringifierBase.hpp"
+#include "SSVUtils/Core/Common/Common.hpp"
+#include "SSVUtils/Core/String/String.hpp"
+#include "SSVUtils/Core/ConsoleFmt/ConsoleFmt.hpp"
+
+#include <vrm/pp.hpp>
+
+#include <string>
+#include <iterator>
+#include <array>
+
+namespace ssvu
+{
+namespace Impl
+{
+/// @brief Prints a value to a stream, with optional formatting
+/// parameters.
+/// @tparam TFmt If true, applies formatting.
+/// @tparam TResetFmt If true, resets current formatting before applying
+/// new one.
+template <bool TFmt, bool TResetFmt = true, typename T>
+inline void printFmt(std::ostream& mStream, const T& mValue,
+    Console::Color mColor = Console::Color::Default,
+    Console::Style mStyle = Console::Style::None)
+{
+    if(TFmt)
+    {
+        if(TResetFmt) resetFmt(mStream);
+        mStream << Console::setColorFG(mColor) << Console::setStyle(mStyle);
+    }
+
+    mStream << mValue;
+}
+
+/// @brief Shortcut to `printFmt`, using optional bold formatting.
+template <bool TFmt, typename T>
+inline void printBold(std::ostream& mStream, const T& mValue,
+    Console::Color mColor = Console::Color::Default)
+{
+    printFmt<TFmt>(mStream, mValue, mColor, Console::Style::Bold);
+}
+
+/// @brief Shortcut to `printFmt`, using optional non-bold formatting.
+template <bool TFmt, typename T>
+inline void printNonBold(std::ostream& mStream, const T& mValue,
+    Console::Color mColor = Console::Color::Default)
+{
+    printFmt<TFmt>(mStream, mValue, mColor, Console::Style::None);
+}
+
+/// @brief Utility function to avoid repetition. (implementation for
+/// BidirectionalIterator)
+template <typename TItr, typename TFunc1, typename TFunc2>
+inline void repeatPenultimateImpl(TItr mBegin, TItr mEnd, TFunc1 mFunc,
+    TFunc2 mFuncSeparator, std::bidirectional_iterator_tag)
+{
+    auto itrPenultimate(--mEnd);
+    for(; mBegin != itrPenultimate; ++mBegin)
+    {
+        mFunc(*mBegin);
+        mFuncSeparator(*mBegin);
+    }
+    mFunc(*itrPenultimate);
+}
+
+/// @brief Utility function to avoid repetition. (implementation for
+/// ForwardIterator)
+template <typename TItr, typename TFunc1, typename TFunc2>
+inline void repeatPenultimateImpl(TItr mBegin, TItr mEnd, TFunc1 mFunc,
+    TFunc2 mFuncSeparator, std::forward_iterator_tag)
+{
+    auto count(std::distance(mBegin, mEnd));
+    for(auto i(0); i < count; ++i)
+    {
+        mFunc(*mBegin);
+        if(i < count - 1) mFuncSeparator(*mBegin);
+        ++mBegin;
+    }
+}
+
+/// @brief Utility function to avoid repetition.
+/// @details Calls mFunc on each element, and mFuncSeparator on each
+/// element except the last. Dispatches `repeatPenultimateImpl`.
+template <typename TItr, typename TFunc1, typename TFunc2>
+inline void repeatPenultimate(
+    TItr mBegin, TItr mEnd, TFunc1 mFunc, TFunc2 mFuncSeparator)
+{
+    repeatPenultimateImpl(mBegin, mEnd, mFunc, mFuncSeparator,
+        typename std::iterator_traits<TItr>::iterator_category());
+}
+
+/// @brief Default stringifier. Simply streams the value.
+
+
+/// @brief Linear container stringifier. Simply streams each element,
+/// separated by commas.
+template <typename T>
+struct StringifierContainer
+{
+    template <bool TFmt>
+    inline static void impl(std::ostream& mStream, const T& mValue)
+    {
+        auto itrBegin(std::begin(mValue));
+        if(itrBegin == std::end(mValue))
+        {
+            printBold<TFmt>(mStream, "{ EMPTY }");
+            return;
+        }
+
+        printBold<TFmt>(mStream, "{");
+        repeatPenultimate(
+            itrBegin, std::end(mValue),
+            [&mStream](
+                const auto& mE) { callStringifyImpl<TFmt>(mStream, mE); },
+            [&mStream](auto&) { printBold<TFmt>(mStream, ", "); });
+        printBold<TFmt>(mStream, "}");
+    }
+};
+
+/// @brief Tuple stringifier. Calls `implTpl` to stringify the elements.
+template <typename T>
+struct StringifierTuple
+{
+    template <bool TFmt>
+    inline static void impl(std::ostream& mStream, const T& mValue)
+    {
+        printBold<TFmt>(mStream, "{");
+        tplForData(
+            [&mStream](auto mD, const auto& mX) {
+                callStringifyImpl<TFmt>(mStream, mX);
+                if(mD.getIdx() < std::tuple_size_v<T> - 1)
+                    printBold<TFmt>(mStream, ", ");
+            },
+            mValue);
+        printBold<TFmt>(mStream, "}");
+    }
+};
+
+/// @brief Map stringifier. Streams each key <separator> value pair,
+/// separated by commas.
+template <bool TFmt, typename T, typename TSep>
+inline void stringifyMapImpl(
+    std::ostream& mStream, const T& mValue, const TSep& mSeparator)
+{
+    auto itrBegin(std::begin(mValue));
+    if(std::begin(mValue) == std::end(mValue))
+    {
+        printBold<TFmt>(mStream, "{ EMPTY }");
+        return;
+    }
+
+    printBold<TFmt>(mStream, "{");
+
+    repeatPenultimate(
+        itrBegin, std::end(mValue),
+        [&mStream, &mSeparator](const auto& mE) {
+            callStringifyImpl<TFmt>(mStream, mE.first);
+            printBold<TFmt>(mStream, mSeparator);
+            callStringifyImpl<TFmt>(mStream, mE.second);
+        },
+        [&mStream](const auto&) { printBold<TFmt>(mStream, ", "); });
+
+    printBold<TFmt>(mStream, "}");
+}
+} // namespace Impl
+
+
+
+// Stringify base types
+#define SSVU_IMPL_DEFINE_BASE_STRINGIFIER(mType, mColor, mStyle, mPostfix)  \
+    template <>                                                             \
+    struct Stringifier<mType>                                               \
+    {                                                                       \
+        template <bool TFmt>                                                \
+        inline static void impl(std::ostream& mStream, const mType& mValue) \
+        {                                                                   \
+            if(TFmt)                                                        \
+                mStream << Console::setStyle(mStyle)                        \
+                        << Console::setColorFG(mColor);                     \
+            mStream << mValue;                                              \
+            if(TFmt) mStream << mPostfix;                                   \
+        }                                                                   \
+    }
+
+SSVU_IMPL_DEFINE_BASE_STRINGIFIER(
+    int, Console::Color::LightBlue, Console::Style::Bold, "");
+SSVU_IMPL_DEFINE_BASE_STRINGIFIER(
+    long, Console::Color::LightBlue, Console::Style::Bold, "l");
+SSVU_IMPL_DEFINE_BASE_STRINGIFIER(
+    unsigned int, Console::Color::LightBlue, Console::Style::Bold, "u");
+SSVU_IMPL_DEFINE_BASE_STRINGIFIER(
+    unsigned long, Console::Color::LightBlue, Console::Style::Bold, "ul");
+SSVU_IMPL_DEFINE_BASE_STRINGIFIER(
+    float, Console::Color::LightRed, Console::Style::Bold, "f");
+SSVU_IMPL_DEFINE_BASE_STRINGIFIER(
+    double, Console::Color::LightRed, Console::Style::Bold, "d");
+SSVU_IMPL_DEFINE_BASE_STRINGIFIER(
+    std::string, Console::Color::LightYellow, Console::Style::None, "");
+
+#undef SSVU_IMPL_DEFINE_BASE_STRINGIFIER
+
+// Stringify tuples
+template <typename T1, typename T2>
+struct Stringifier<std::pair<T1, T2>> final
+    : public Impl::StringifierTuple<std::pair<T1, T2>>
+{
+};
+template <typename... TArgs>
+struct Stringifier<std::tuple<TArgs...>> final
+    : public Impl::StringifierTuple<std::tuple<TArgs...>>
+{
+};
+
+// Stringify arrays
+template <typename T, std::size_t TN>
+struct Stringifier<T[TN]> final : public Impl::StringifierContainer<T[TN]>
+{
+};
+template <typename T, std::size_t TN>
+struct Stringifier<std::array<T, TN>> final
+    : public Impl::StringifierContainer<std::array<T, TN>>
+{
+};
+
+template <typename T, typename = void>
+struct HasKeyType : std::false_type
+{
+};
+
+template <typename T>
+struct HasKeyType<T, Impl::VoidT<typename T::key_type>> : std::true_type
+{
+};
+
+template <typename T, typename = void>
+struct IsAlloc : std::false_type
+{
+};
+
+template <typename T>
+struct IsAlloc<T,
+    Impl::VoidT<typename T::propagate_on_container_move_assignment>>
+    : std::true_type
+{
+};
+
+
+
+// Stringify linear containers (value type and allocator type)
+template <template <typename, typename> class T, typename TV, typename TAlloc>
+struct Stringifier<T<TV, TAlloc>,
+    std::enable_if_t<!HasKeyType<T<TV, TAlloc>>::value &&
+                     IsAlloc<TAlloc>::value>>
+    final : public Impl::StringifierContainer<T<TV, TAlloc>>
+{
+};
+
+// Stringify map-like containers
+template <template <typename, typename, typename, typename...> class TM,
+    typename TK, typename TV, typename TComp, typename TAlloc,
+    typename... TArgs>
+struct Stringifier<TM<TK, TV, TComp, TAlloc, TArgs...>,
+    std::enable_if_t<HasKeyType<TM<TK, TV, TComp, TAlloc, TArgs...>>::value>>
+{
+    template <bool TFmt>
+    inline static void impl(std::ostream& mStream,
+        const TM<TK, TV, TComp, TAlloc, TArgs...>& mValue)
+    {
+        Impl::stringifyMapImpl<TFmt>(mStream, mValue, " -> ");
+    }
+};
+
+// Stringify pointer
+template <typename T>
+struct Stringifier<T*>
+{
+    template <bool TFmt>
+    inline static void impl(std::ostream& mStream, const T* mValue,
+        std::enable_if_t<!std::is_same_v<std::remove_const_t<T>, char>>* =
+            nullptr)
+    {
+        Impl::printBold<TFmt>(mStream, "[", Console::Color::Blue);
+        Impl::printFmt<TFmt>(mStream,
+            mValue != nullptr ? static_cast<const void*>(mValue) : "nullptr",
+            Console::Color::Cyan, Console::Style::Underline);
+        Impl::printBold<TFmt>(mStream, "]", Console::Color::Blue);
+    }
+};
+} // namespace ssvu
+
+#endif

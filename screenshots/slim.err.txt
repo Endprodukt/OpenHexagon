@@ -1,0 +1,14 @@
+lit peak 87189 avg 29283
+lit peak 98732 avg 84209
+lit peak 100005 avg 81352
+lit peak 61118 avg 32508
+lit peak 87656 avg 66875
+lit peak 88185 avg 50721
+lit peak 75852 avg 48606
+lit peak 66576 avg 26295
+lit peak 39981 avg 12644
+lit peak 71408 avg 58604
+lit peak 66386 avg 55432
+lit peak 90388 avg 77967
+lit peak 99014 avg 84751
+lit peak 85224 avg 35925
