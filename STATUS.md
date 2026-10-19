@@ -87,3 +87,5 @@ Open Hexagon auf dem VectorPie-Automaten (Pi 5, USB-DVG, WG6100, Monitor waagere
 3. Rückmeldung vom Automaten: Bildrate, Helligkeit, Spinner, Titel, Musik-Sync.
 4. Demo-Autopilot verbessern oder ab Werk einige Replays mitliefern.
 5. Bei zu hohen Bildkosten: Text im Spiel kleiner, PB-Sterne begrenzen, Wände außerhalb des Bildes früher weglassen.
+
+GitHub release (2026-10-19): `v0.1.0` with `openhexagon-0.1.0.vpk` (the normal package, without the Steam music; the personal package never goes to GitHub).
