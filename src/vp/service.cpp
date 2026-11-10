@@ -625,6 +625,8 @@ void serviceDraw(vp_dvg* d)
     // to the screen's edges and into the help).
     std::vector<std::pair<std::string, Rgb>> hints;
     if(const char* said = vpb_layout_said(&S.lay)) hints.push_back({said, Rgb{255, 80, 80}});
+    if(S.row == R_VOLUME || S.row == R_MUSIC || S.row == R_EFFECTS)
+        hints.push_back({"THE CABINET MENU'S MUSIC AND SOUND VOLUMES APPLY FIRST. THESE ARE THE GAME'S OWN, ON TOP", CYAN});
     if(S.page == PAGE_VIDEO && S.row == R_HZ) hints.push_back({"THE FRAME RATE CHANGES AT THE NEXT START", CYAN});
     if(S.page == PAGE_CONTROLS && S.row == R_SETUP) hints.push_back({"HOW THE LEVELS AND THE TUTORIAL NAME THE CONTROLS", CYAN});
     if(S.page == PAGE_GAME)

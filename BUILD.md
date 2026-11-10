@@ -1,118 +1,124 @@
-# Bauen
+# Building
 
-## PC (Windows, nativ)
+The VectorPie SDK is a git submodule: after cloning, run `git submodule update --init`.
 
-Voraussetzung: MSYS2 mit MinGW-w64-GCC und SDL2 unter `C:\msys64\mingw64`, dazu CMake und Ninja.
+## PC (Windows, native)
+
+Needs MSYS2 with MinGW-w64 GCC and SDL2 in `C:\msys64\mingw64`, plus CMake and Ninja.
 
 ```bash
 export PATH="/c/msys64/mingw64/bin:$PATH"
-cmake -S . -B build/pc -G Ninja -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_PREFIX_PATH=C:/msys64/mingw64
+cmake -S . -B build/pc -G Ninja -DCMAKE_C_COMPILER=C:/msys64/mingw64/bin/gcc.exe -DCMAKE_CXX_COMPILER=C:/msys64/mingw64/bin/g++.exe -DCMAKE_PREFIX_PATH=C:/msys64/mingw64
 cmake --build build/pc
 build/pc/openhexagon.exe --windowed
 ```
 
-CMake kopiert `assets/` (Level-Pakete und Sounds) und `package/game.ini` neben das Programm. Einstellungen, Bestzeiten, Tabellen und Replays liegen in `build/pc/save`.
+From PowerShell, put `C:\msys64\mingw64\bin` first in `PATH` too, or g++ stops without a message. The compilers are named with their full paths: with another toolchain earlier in `PATH` (the Pi cross compiler), a reconfigure would otherwise pick that one.
 
-Tasten am PC (die Vorgaben von AdvanceMAME): Pfeile links/rechts drehen, Linke Strg = Focus, Linke Alt = Swap, Leertaste = zurück zur Levelwahl, 1 = Start, 5 = Münze, F2 = Service-Menü, Esc = Ende. Die Maus ist der Spinner.
+CMake copies `assets/` (level packs and sounds) and `package/game.ini` next to the program. Settings, best times, tables and replays are in `build/pc/save`.
 
-`VP_STATS=1` gibt einmal pro Sekunde die Kosten eines Bildes aus (Linien, Sprünge, Weglängen).
+Keys on a PC (AdvanceMAME's defaults): left/right arrows turn, left Ctrl = Focus, left Alt = Swap, Space = back to the level select, 1 = Start, 5 = coin, F2 = service menu, Esc = quit. The mouse is the spinner.
+
+`VP_STATS=1` prints what a frame costs once a second (lines, jumps, lengths).
 
 ## Raspberry Pi (arm64)
 
-Wie beim Tempest-2000-Port: clang und lld vom PC gegen die Kopie der Bibliotheken des Automaten. Die Sysroot wird von dort mitbenutzt (`F:/Tempest 2000 Port/build/pi-sysroot`, in `cmake/toolchain-pi-clang.cmake` als `OH_PI_SYSROOT` einstellbar). Wie sie angelegt wird, steht in der BUILD.md des Tempest-Ports.
+As for the Tempest 2000 port: clang and lld on the PC against a copy of the cabinet's libraries (a sysroot). Its place is set in `cmake/toolchain-pi-clang.cmake` as `OH_PI_SYSROOT`; the maintainer's is `F:/Tempest 2000 Port/build/pi-sysroot`. How to make one is in the Tempest 2000 port's BUILD.md.
 
 ```bash
-export PATH="/c/Users/ocare/.local/share/retcomm/toolchains/cmake-clang-v1/latest/bin:/c/msys64/mingw64/bin:$PATH"
+export PATH="<clang toolchain>/bin:/c/msys64/mingw64/bin:$PATH"
 cmake -S . -B build/pi -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-pi-clang.cmake -DCMAKE_BUILD_TYPE=Release
 cmake --build build/pi
 ```
 
-## Paket für den Automaten
+## Package for the cabinet
 
-Nach dem Pi-Build:
+After the Pi build:
 
 ```bash
 sh tools/make_vpk.sh
 ```
 
-Für den eigenen Automaten mit der Musik der Steam-Version (der Nutzer hat sie seit 2026-10-18; nur für ihn, nicht weitergeben):
+This writes `build/openhexagon-<version>.vpk`: the Pi program, `game.ini`, `leds.cfg` (lamp colors, control help), the marquee and `assets/`. To install, copy it to a USB stick's `games` folder, or straight to `/persistent/games/packages/` on the cabinet, then Settings, GAMES, INSTALL GAMES. The `save` folder is kept on an update.
+
+For your own cabinet with the Steam version's music (never to be given away):
 
 ```bash
 sh tools/make_vpk.sh personal
 ```
 
-Das schreibt `build/openhexagon-<version>-personal.vpk` (rund 60 MB). `tools/steam_music.sh` holt dafür die 21 Musikstücke und die Sounds `blip.ogg`, `swapBlip.ogg`, `fanfare.ogg`, `failure.ogg` aus `C:\Program Files (x86)\Steam\steamapps\common\Open Hexagon` (anderer Ort: `OH_STEAM_DIR`). Für den PC-Build: `sh tools/steam_music.sh build/pc/assets`. Die Steam-Pakete sind sonst gleich mit dem GitHub-Stand (nur die Zeilenenden unterscheiden sich).
+This writes `build/openhexagon-<version>-personal.vpk` (about 60 MB). `tools/steam_music.sh` takes the 21 tracks and the sounds `blip.ogg`, `swapBlip.ogg`, `fanfare.ogg`, `failure.ogg` from `C:\Program Files (x86)\Steam\steamapps\common\Open Hexagon` (elsewhere: `OH_STEAM_DIR`). For the PC build: `sh tools/steam_music.sh build/pc/assets`. The Steam packs are otherwise the same as the GitHub sources (only the line endings differ).
 
-Das normale Paket `build/openhexagon-<version>.vpk` enthält Pi-Programm, `game.ini`, `leds.cfg` (Lampenfarben, Bedienhilfe) und `assets/`. Installieren: auf einen USB-Stick in den Ordner `games` kopieren, oder direkt nach `/persistent/games/packages/` auf dem Automaten. Danach im Menü Settings, GAMES, INSTALL GAMES. Der Ordner `save` bleibt bei einem Update erhalten.
+To test without installing, copy `package/run.sh` next to the program. It ends the menu, starts the game on the vector board and brings the menu back afterwards. The frame cost is then in `run.log`.
 
-Zum Testen ohne Installation kann `package/run.sh` neben das Programm kopiert werden. Es beendet das Menü, startet das Spiel auf dem Vektor-Board und holt das Menü danach zurück. Die Bildkosten stehen dann in `run.log`.
+## Music
 
-## Musik
-
-Ab Werk erzeugt das Spiel seine Musik selbst, im Takt mit dem Level (Service-Menü, MUSIC: MADE BY THE GAME). Hörproben aller Level schreibt:
+Out of the box the game makes its own music, in time with the level (service menu, MUSIC: MADE BY THE GAME). To write samples of every level:
 
 ```bash
 cd build/pc
 OH_MUSIC_DEMO=60 SDL_AUDIODRIVER=dummy ./openhexagon.exe --windowed 2>&1 | grep music-demo
 ```
 
-Das legt je Level 60 Sekunden als WAV nach `save/music_demo/` (zusammen rund 250 MB) und nennt Tempo, Pulse-Abstand in Spieltakten und die Zeit für das Erzeugen.
+This writes 60 seconds per level as WAV to `save/music_demo/` (about 250 MB in all) and prints the tempo, the pulse spacing in game ticks and the time it took to make.
 
-Die Musik des Originals gehört nicht zum Open-Source-Teil. Wer die Steam-Version hat, legt deren `.ogg`-Dateien (aus `Packs/<pack>/Music/`) in den Ordner `save/music` des Spiels. Auf dem Automaten ist das `/persistent/games/openhexagon/save/music/`. Der Dateiname muss dem `file_name` in der Musik-JSON entsprechen, zum Beispiel `callMeKatla.ogg`. Alternativ können sie in `assets/Packs/<pack>/Music/` liegen, wie im Original. Fehlt ein Stück, läuft das Level ohne Musik.
+The original's music is not part of the open-source sources. With the Steam version, put its `.ogg` files (from `Packs/<pack>/Music/`) into the game's `save/music` folder; on the cabinet that is `/persistent/games/openhexagon/save/music/`. The file name must be the `file_name` in the music JSON, `callMeKatla.ogg` for one. They can also go into `assets/Packs/<pack>/Music/`, as in the original. A level whose file is missing gets the generated music.
 
-## Einstellungen
+On the cabinet the menu's MUSIC VOLUME and SOUND VOLUME apply to the game (SDK 0.9): the music plays as an SDK stream, the effects as sounds. The game's own volumes apply on top.
 
-`save/settings.ini` wird vom Service-Menü (F2) geschrieben:
+## Settings
 
-- `mode` (`home` oder `arcade`), `free_play`, `lives` (1 bis 5), `attract_sound`, `select_seconds`
-- `volume`, `music_volume`, `effects_volume` (0 bis 100)
-- `sensitivity` (Spinner: 1.0 heißt 1200 Zählschritte für eine Runde), `spinner_reversed`
-- `setup` (`cabinet` oder `pc`): wie die Level und das Tutorial die Steuerung nennen (Spinner und Tasten gehen immer beide; ein altes `played_with` wird überlesen)
-- `button_left`, `button_right`, `button_focus`, `button_swap`, `button_back` (advmame.rc-Namen)
-- `arcade_difficulty` (`choose`, `easiest`, `normal`), `game_speed` (50 bis 150), `rotation`, `pulse`, `rotate_to_start`, `invincible`, `auto_restart`
-- `music` (`made`, `files` oder `off`; fehlt der Eintrag: `files`, wenn Original-Musik da ist, sonst `made`. Mit `files` bekommt ein Level ohne seine Datei die erzeugte Musik.)
-- `3d`, `3d_depth` (Prozent), `wall_fill` (`off`, `low`, `high`), `tints`, `spokes` (Hintergrund-Seiten als Linien), `flash`, `trail`, `simplify` (zu volle Level einfacher zeichnen, ab Werk `no`)
-- `frame_hz` (60, 50 oder 40, gilt ab dem nächsten Start), `screen_size` (Prozent), `view_size` (100 bis 135: wie viel vom Spielfeld zu sehen ist)
-- `bright_walls`, `bright_3d`, `bright_background`, `bright_player`, `bright_text` (ab Werk 90, 80, 45, 100, 90: die Werte des Automaten vom 2026-10-19)
+`save/settings.ini` is written by the service menu (F2):
+
+- `mode` (`home` or `arcade`), `free_play`, `lives` (1 to 5), `attract_sound`, `select_seconds`
+- `volume`, `music_volume`, `effects_volume` (0 to 100; on top of the cabinet menu's volumes)
+- `sensitivity` (spinner: 1.0 means 1200 counts for one turn), `spinner_reversed`
+- `setup` (`cabinet` or `pc`): how the levels and the tutorial name the controls (spinner and keys always work together; an old `played_with` is ignored)
+- `button_left`, `button_right`, `button_focus`, `button_swap`, `button_back` (controls as text, `+` between them)
+- `arcade_difficulty` (`choose`, `easiest`, `normal`), `game_speed` (50 to 150), `rotation`, `pulse`, `rotate_to_start`, `invincible`, `auto_restart`
+- `music` (`made`, `files` or `off`; without the line: `files` when original music is there, else `made`. With `files`, a level without its file gets the generated music.)
+- `3d`, `3d_depth` (percent), `wall_fill` (`off`, `low`, `high`), `tints`, `spokes` (background sides as lines), `flash`, `trail`, `simplify` (draw too busy levels simpler, `no` out of the box)
+- `frame_hz` (60, 50 or 40, from the next start), `screen_size` (percent), `view_size` (100 to 135: how much of the field is seen)
+- `bright_walls`, `bright_3d`, `bright_background`, `bright_player`, `bright_text` (90, 80, 45, 100, 90 out of the box)
 
 ## Marquee
 
-`package/marquee.png` ist auf den HDMI-Schirm des Automaten zugeschnitten (1920 x 360): aus dem Marquee des Nutzers (2000 x 228) die Mitte um das Logo, sonst würde es mit `vector_aux_marquee_display_mode stretch` gequetscht.
+`package/marquee.png` is cut for the cabinet's HDMI screen (1920 x 360): the middle of the owner's marquee (2000 x 228) around the logo, otherwise `vector_aux_marquee_display_mode stretch` would squeeze it.
 
-## Weitere Level
+## More levels
 
-Neben den eingebauten Paketen lädt das Spiel jedes Paket aus `save/packs/<paket>/` (auf dem Automaten `/persistent/games/openhexagon/save/packs/`). Ein Paket hat denselben Aufbau wie die in `assets/Packs/`: `pack.json`, `Levels/`, `Scripts/`, `Styles/`, wahlweise `Music/` und `Sounds/`. Workshop-Level der Steam-Version liegen nach dem Abonnieren unter `steamapps/workshop/content/1358090/<nummer>/` und können so hineinkopiert werden. Der Ordner bleibt bei Updates erhalten. Ein Paket ohne Musik bekommt die erzeugte.
+Besides the built-in packs, the game loads every pack in `save/packs/<pack>/` (on the cabinet `/persistent/games/openhexagon/save/packs/`). A pack is laid out like those in `assets/Packs/`: `pack.json`, `Levels/`, `Scripts/`, `Styles/`, optionally `Music/` and `Sounds/`. The Steam version's workshop levels are in `steamapps/workshop/content/1358090/<number>/` once subscribed and can be copied in like that. The folder is kept on updates. A pack without music gets the generated music.
 
-## Spielstände
+## Saves
 
-Im Ordner `save`:
+In the `save` folder:
 
-- `scores.txt`: die persönlichen Bestzeiten des Home-Modus, wie im Original je Level und Schwierigkeit.
-- `arcade/<level>.txt`: die Bestenliste je Level, Zeiten in Hundertstelsekunden.
-- `highscores.txt`: die beste Liste über alle Level, für die Anzeige im Menü des Automaten.
-- `replays/<level>_<schwierigkeit>x.ohr`: der beste Lauf je Level, im Replay-Format des Originals. Das Demo im Attract-Modus und die Vorschau der Levelwahl spielen sie ab.
+- `scores.txt`: the home mode's personal bests, as in the original per level and difficulty.
+- `arcade/<level>.txt`: the high score table per level, times in hundredths of a second.
+- `highscores.txt`: the best table over all levels, for the cabinet menu.
+- `replays/<level>_<difficulty>x.ohr`: the best run per level, in the original's replay format, with `.ohr.spin` (the spinner steps). The attract demo and the level select's preview play them.
 
-## Logo-Schrift neu erzeugen
+## Making the logo font again
 
 ```bash
 python tools/make_logo_font.py
 ```
 
-Liest `OpenSquare-Bold.ttf` aus den Assets des Originals und schreibt `src/vp/gen/logo_font.inc` (Konturen und Dreiecke der Buchstaben von OPEN HEXAGON). Die erzeugte Datei nicht von Hand ändern.
+Reads `OpenSquare-Bold.ttf` from the original's assets and writes `src/vp/gen/logo_font.inc` (outlines and triangles of the letters of OPEN HEXAGON). Do not edit the generated file by hand.
 
-## Selbsttest
+## Self test
 
-Spielt jedes Level in jeder Schwierigkeit mit dem Autopiloten, bis zu N Sekunden, und meldet Lua-Fehler:
+Plays every level at every difficulty with the autopilot, up to N seconds, and reports Lua errors:
 
 ```bash
 cd build/pc
 OH_SELFTEST=40 SDL_AUDIODRIVER=dummy ./openhexagon.exe --windowed 2>&1 | grep selftest
 ```
 
-Die letzte Zeile muss `0 with errors` melden. Die Zeilen `selftest-color` nennen je Level die dunkelste Wandfarbe vor dem Anheben (0 bis 255) und ob der Style invertiert gezeichnet wird.
+The last line must say `0 with errors`. The `selftest-color` lines give each level's darkest wall color before lifting (0 to 255) and whether the style is drawn inverted.
 
-Testhilfe: `OH_LEVEL=<Teil der Level-Kennung>` startet gleich dieses Level, zum Beispiel `OH_LEVEL=babysteps`. Achtung, solche Läufe speichern Bestzeiten.
+Test help: `OH_LEVEL=<part of the level id>` starts that level at once, `OH_LEVEL=babysteps` for one. Careful, such runs save best times.
 
-## Bildschirmfoto
+## Screenshots
 
-`tools/snap.ps1 -Out <pfad> [-Keys ...]` startet das Spiel, schickt Tasten (virtuelle Tastencodes in Hex, `+`/`-` für halten/loslassen, `wNNN` warten, `snap` Bild) und speichert das Fenster als PNG. Aus `build/pc` heraus starten, sonst findet das Spiel seinen `save`-Ordner nicht.
+`tools/snap.ps1 -Out <path> [-Keys ...]` starts the game, sends keys (virtual key codes in hex, `+`/`-` to hold/release, `wNNN` to wait, `snap` for a picture) and saves the window as PNG. Start it from `build/pc`, or the game does not find its `save` folder.

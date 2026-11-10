@@ -1681,6 +1681,10 @@ void appUpdate(vp_game* g, float dt)
         }
     }
 
+    // The music is an SDK stream: fed every step, in every mode (the title's
+    // music plays where no game runs).
+    if(A.audio) A.audio->update();
+
     switch(A.mode)
     {
         case Mode::HomeTitle: updateHomeTitle(); break;

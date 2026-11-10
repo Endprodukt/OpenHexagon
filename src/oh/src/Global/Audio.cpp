@@ -9,10 +9,12 @@
 //
 // Music: the original opens the .ogg once (_lastLoadedMusicPath) and seeks
 // to the segment's time. Here the track is decoded once into memory with the
-// SDK's stb_vorbis; each start makes a sound from the samples after the
-// offset and loops the whole track after it (setLoop(true) in the original
-// loops from the start: the part before the offset is played on the next
-// pass, so the loop is the full track).
+// SDK's stb_vorbis and fed to an SDK stream (vp_stream_play) from the offset,
+// looping the whole track after it (setLoop(true) in the original loops from
+// the start: the part before the offset is played on the next pass). A
+// stream is music to the SDK: the cabinet menu's MUSIC VOLUME applies to it,
+// its SOUND VOLUME to the effects (SDK 0.9). The pitch is the feed's own
+// step through the samples.
 
 #include "SSVOpenHexagon/Global/Audio.hpp"
 
@@ -60,12 +62,12 @@ private:
     int _channels{2};
     int _rate{44100};
 
-    // The playing part: from _offsetSeconds to the end, then the whole track
-    // looped.
-    vp_sound* _head{nullptr};
-    vp_sound* _whole{nullptr};
+    // The stream: fed from _pos (frames into _pcm, fractional with the
+    // pitch) on, back to _loopStart at the end.
+    static constexpr double AHEAD_SECONDS = 0.2; // written ahead of the device
     vp_voice _voice{0};
-    bool _onWhole{false};
+    double _pos{0.0};
+    std::vector<float> _chunk;
     bool _paused{true};
     bool _hasMusic{false};
     bool _quiet{false};
@@ -136,36 +138,45 @@ private:
             vp_voice_stop(_dev, _voice, 0.f);
             _voice = 0;
         }
-
-        vp_sound_free(_dev, _head);
-        _head = nullptr;
     }
 
-    [[nodiscard]] vp_sound* makeSound(std::size_t firstFrame)
+    // Writes the stream up to AHEAD_SECONDS ahead: stereo floats, a step of
+    // _pitch source frames per frame (linear between two), looping.
+    void feed()
     {
-        const std::size_t frames = _pcm.size() / _channels;
-        if(firstFrame >= frames)
+        const std::size_t frames = _pcm.size() / static_cast<std::size_t>(_channels);
+        if(_voice == 0 || frames < 2)
         {
-            firstFrame = 0;
+            return;
         }
 
-        const std::size_t n = frames - firstFrame;
-        std::vector<float> f(n * _channels);
-        const short* src = _pcm.data() + firstFrame * _channels;
-
-        for(std::size_t i = 0; i < f.size(); ++i)
+        const int want = static_cast<int>(_rate * AHEAD_SECONDS) - vp_stream_queued(_dev, _voice);
+        if(want <= 0)
         {
-            f[i] = src[i] * (1.f / 32768.f);
+            return;
         }
 
-        vp_sound* s = nullptr;
-        if(vp_sound_from_samples(_dev, f.data(), static_cast<int>(n),
-               _channels, _rate, &s) != VP_OK)
+        _chunk.resize(static_cast<std::size_t>(want) * 2);
+        const double loopAt = static_cast<double>(std::min(_loopStart, frames - 1));
+        for(int i = 0; i < want; ++i)
         {
-            return nullptr;
+            if(_pos >= static_cast<double>(frames - 1))
+            {
+                _pos = loopAt + (_pos - static_cast<double>(frames - 1));
+            }
+
+            const std::size_t a = static_cast<std::size_t>(_pos);
+            const float t = static_cast<float>(_pos - static_cast<double>(a));
+            const short* p0 = _pcm.data() + a * _channels;
+            const short* p1 = p0 + _channels;
+            const float l = (p0[0] + (p1[0] - p0[0]) * t) * (1.f / 32768.f);
+            const float r = _channels == 2 ? (p0[1] + (p1[1] - p0[1]) * t) * (1.f / 32768.f) : l;
+            _chunk[i * 2] = l;
+            _chunk[i * 2 + 1] = r;
+            _pos += _pitch;
         }
 
-        return s;
+        (void)vp_stream_write(_dev, _voice, _chunk.data(), want);
     }
 
     void startVoice()
@@ -175,14 +186,10 @@ private:
             return;
         }
 
-        if(_head == nullptr)
-        {
-            _head = makeSound(static_cast<std::size_t>(_offsetSeconds * _rate + 0.5f));
-        }
-
-        _onWhole = false;
-        _voice = vp_sound_play(_dev, _head, _musicVolume, _pitch, 0);
+        _voice = vp_stream_play(_dev, _rate, _musicVolume);
+        _pos = static_cast<double>(_offsetSeconds) * _rate;
         _startedAt = (vp_ticks_ms() / 1000.0);
+        feed();
     }
 
 public:
@@ -202,7 +209,6 @@ public:
         }
 
         freeMusicSounds();
-        vp_sound_free(_dev, _whole);
 
         for(auto& [id, ls] : _sounds)
         {
@@ -225,8 +231,8 @@ public:
         }
     }
 
-    // Called every step by the VectorPie loop (src/vp/app.cpp): after the
-    // head part ends, the whole track loops.
+    // Called every step by the VectorPie loop (src/vp/app.cpp): keeps the
+    // stream fed.
     void update()
     {
         if(_dev == nullptr || _voice == 0 || _paused)
@@ -234,16 +240,7 @@ public:
             return;
         }
 
-        if(!vp_voice_playing(_dev, _voice) && !_onWhole)
-        {
-            if(_whole == nullptr)
-            {
-                _whole = makeSound(_loopStart);
-            }
-
-            _onWhole = true;
-            _voice = vp_sound_play(_dev, _whole, _musicVolume, _pitch, 1);
-        }
+        feed();
     }
 
     void resumeMusic()
@@ -347,8 +344,6 @@ public:
         if(_lastLoadedMusicPath != *path)
         {
             freeMusicSounds();
-            vp_sound_free(_dev, _whole);
-            _whole = nullptr;
             _pcm.clear();
 
             short* out = nullptr;
@@ -410,8 +405,6 @@ public:
         freeMusicSounds();
         if(_lastLoadedMusicPath != key)
         {
-            vp_sound_free(_dev, _whole);
-            _whole = nullptr;
             _pcm = pcm;
             _channels = 2;
             _rate = rate;
@@ -432,12 +425,7 @@ public:
             return; // VectorPie: made at the level's tempo
         }
 
-        _pitch = pitch;
-
-        if(_voice != 0)
-        {
-            vp_voice_set_pitch(_dev, _voice, pitch);
-        }
+        _pitch = pitch; // the feed's step from now on
     }
 };
 

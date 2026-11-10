@@ -1,54 +1,54 @@
-# Weiterarbeiten
+# Continuing the work
 
-## Aufbau
+## Layout
 
-- `reference/SSVOpenHexagon/`: Klon von vittorioromeo/SSVOpenHexagon mit den Submodulen SSVUtils, SSVStart, vrm_pp. Nur lesen.
-- `vendor/VectorPie/`: Klon von Goldfinch2/VectorPie (Stand 2026-10-15). Das SDK liegt in `sdk/`, die Doku in `sdk/docs/`.
-- `vendor/lua-5.1.5/`: Lua von lua.org. `vendor/SSVUtils/`, `vendor/vrm_pp/`: Header-Bibliotheken des Originals.
-- `src/oh/`: der Spielkern des Originals (`include/SSVOpenHexagon/...`, `src/...`, gleiche Dateinamen). Jede Abweichung ist mit `VectorPie` kommentiert. Neu geschrieben, mit denselben Schnittstellen:
-  - `Global/Config.*`: nur die Getter, die der Kern braucht, mit den Standardwerten des Originals.
-  - `Global/Assets.*`: die Ladefunktionen des Originals (`loadPackData`, `loadPackAssets_*`) unverändert übernommen, ohne Texturen, Schriften, Shader, Profile. Bestzeiten in `save/scores.txt`.
-  - `Global/Audio.*`: über `vp_audio`, Musik mit Segment-Start (dekodiert mit dem stb_vorbis des SDK).
-  - `Core/HGGraphics.cpp`: `draw()` füllt die Puffer wie das Original und merkt sich die 3D-Ebenen in `vpLayers3D`.
-  - `Core/HGVectorPie.cpp`: was GameState und die Eingabe-Callbacks taten (`tick`, `setInputs`, `requestRestart` …), dazu `vpDegPerTick` und der Demo-Autopilot.
-  - `Core/Steam.hpp`, `Discord.hpp`, `HexagonClient.hpp`: leere Platzhalter, die Zeiger sind immer `nullptr`.
-- `src/compat/`: kleine Nachbauten von SFML-Typen (`Vector2`, `Color`, `Vertex`, `View`, `Sprite`, `Text`, `Shader`) und SSVStart (`Camera`, `GameWindow`, `Vector2.hpp` als Kopie).
-- `src/vp/`: VectorPie-Seite.
-  - `main.cpp`: `vp_run`, 60 Hz Update, Bildrate aus den Einstellungen.
-  - `app.cpp`: Zustände Home-Menü, Home-Spiel, Titel, Warnung, Bestenliste, Demo, Levelwahl, Spiel, Continue, Game Over, Initialen, Fehler. Arcade-Punkte: `A.best`, der beste einzelne Versuch über alle Continues eines Credits. Live-Vorschau der Levelwahl (`updatePreview`). Selbsttest `OH_SELFTEST`. Läufe des Piloten immer mit `startLevel(..., true)`, sonst speichert er Bestzeiten.
-  - `render.cpp`: Puffer des Spiels zu Linien, Text, Partikel, Menü-Hintergrund, `ui::`-Helfer (384 x 288, y nach unten).
-  - `occlude.cpp`: verdeckte Linien in der Ebene (Ebenen, Vereinigung gleicher Ebene, Raster, Sortierung der Stücke).
-  - `controls.cpp`: Tasten und Spinner nach advmame.rc-Namen; Spinner als Schritte mit Originalgeschwindigkeit.
-  - `service.cpp`: Service-Menü, nach `src/service.c` des Tempest-2000-Ports.
+- `reference/SSVOpenHexagon/`: a clone of vittorioromeo/SSVOpenHexagon with the submodules SSVUtils, SSVStart, vrm_pp. Read only, not in git.
+- `vendor/VectorPie/`: submodule, Goldfinch2/VectorPie (SDK 0.9.0, 2026-11-10). The SDK is in `sdk/`, its documentation in `sdk/docs/`.
+- `vendor/lua-5.1.5/`: Lua from lua.org. `vendor/SSVUtils/`, `vendor/vrm_pp/`: the original's header libraries.
+- `src/oh/`: the original's game core (`include/SSVOpenHexagon/...`, `src/...`, same file names). Every difference is commented `VectorPie`. Written anew, with the same interfaces:
+  - `Global/Config.*`: only the getters the core needs, with the original's defaults.
+  - `Global/Assets.*`: the original's loading functions (`loadPackData`, `loadPackAssets_*`) taken over unchanged, without textures, fonts, shaders, profiles. Best times in `save/scores.txt`.
+  - `Global/Audio.*`: on `vp_audio`. Effects as SDK sounds; music decoded with the SDK's stb_vorbis (or generated) and fed to an SDK stream from the segment's time (`feed`, called by `Audio::update` every step).
+  - `Core/HGGraphics.cpp`: `draw()` fills the buffers as the original and keeps the 3D layers in `vpLayers3D`.
+  - `Core/HGVectorPie.cpp`: what GameState and the input callbacks did (`tick`, `setInputs`, `requestRestart` ...), plus `vpDegPerTick` and the demo autopilot.
+  - `Core/Steam.hpp`, `Discord.hpp`, `HexagonClient.hpp`: empty stand-ins; the pointers are always `nullptr`.
+- `src/compat/`: small stand-ins for SFML types (`Vector2`, `Color`, `Vertex`, `View`, `Sprite`, `Text`, `Shader`) and SSVStart (`Camera`, `GameWindow`, `Vector2.hpp` as a copy).
+- `src/vp/`: the VectorPie side.
+  - `main.cpp`: `vp_run`, 60 Hz update, frame rate from the settings.
+  - `app.cpp`: modes home menu, home game, title, warning, high scores, demo, level select, play, continue, game over, initials, error. Arcade score: `A.best`, the best single attempt over all continues of a credit; each life restarts with `restartFromStart` (a first start). Live preview of the level select (`updatePreview`). Self test `OH_SELFTEST`. Autopilot runs always with `startLevel(..., true)`, or it saves best times.
+  - `render.cpp`: the game's buffers to lines, text, particles, menu background, `ui::` helpers (384 x 288, y down), `ui::wrap`. `LOOKS`: levels slimmed by hand.
+  - `occlude.cpp`: hidden lines in the plane (layers, union within a layer, grid).
+  - `controls.cpp`: keys and spinner; the spinner 1:1.
+  - `service.cpp`: the service menu, after the Tempest 2000 port's `src/service.c`. Row hints through the `hints` list in `serviceDraw`.
   - `settings.cpp`: `save/settings.ini`.
-  - `synth.cpp`: der Synthesizer (Kick, Snare, Clap, Hats, Crash, Bass mit Wobble oder Hüllkurve, Pad, Lead mit Delay, Riser, Sidechain, Limiter), ein Stück nach `TrackSpec`. Hüllkurven multiplizieren statt `exp` pro Sample; nur so ist er schnell genug für den Pi. Datei mit `-O3 -ffast-math`.
-  - `music.cpp`: Tempo und Phase aus dem Beat-Pulse (`beatSync`), Zwischenspeicher mit Thread (`musicFor`), Startpunkt (`musicStartFrame`). Angebunden über `HexagonGame::vpUseMadeMusic` und `vpOnStart` (in `start()`, vor `resumeMusic`) und `Audio::playGenerated`.
-  - `hints.cpp`: Textfilter für die Steuerungshinweise der Level (`HexagonGame::vpTextFilter`) und Zusatzskripte `assets/VectorPie/<level>.lua` (`vpAfterLevelScript`, mit der Lua-Variablen `vp_cabinet`; zurzeit keine Datei). Eine neue Meldung mit Tastennamen in einem Paket muss dort eingetragen werden, sonst erscheint der PC-Text.
-  - Lange Texte mit `ui::wrap` (render.cpp) umbrechen, nicht abschneiden; Hinweise im Service-Menü über die `hints`-Liste in `serviceDraw`.
-- `assets/`: `Packs/` und `Assets/` (Sounds) aus `_RELEASE` des Originals. Das Spiel wechselt beim Start in diesen Ordner, wie das Original in seinen Spielordner.
-- `package/`: `game.ini`, `leds.cfg`, `run.sh`. `tools/make_vpk.sh` baut das Paket, `tools/snap.ps1` macht Bildschirmfotos.
+  - `synth.cpp`: the synthesizer (kick, snare, clap, hats, crash, bass with wobble or envelope, pad, lead with delay, riser, sidechain, limiter), one track from a `TrackSpec`. Envelopes multiply instead of `exp` per sample; only that is fast enough for the Pi. Built with `-O3 -ffast-math`.
+  - `music.cpp`: tempo and phase from the beat pulse (`beatSync`), a cache with a thread (`musicFor`), the start point (`musicStartFrame`). Hooked up through `HexagonGame::vpUseMadeMusic`, `vpOnStart` (in `start()`, before `resumeMusic`) and `Audio::playGenerated`.
+  - `hints.cpp`: the text filter for the levels' control hints (`HexagonGame::vpTextFilter`), the swap hint, and extra scripts `assets/VectorPie/<level>.lua` (`vpAfterLevelScript`, with the Lua variable `vp_cabinet`; none at the moment). A new message naming keys in a pack has to be added there, or the PC text shows.
+- `assets/`: `Packs/` and `Assets/` (sounds) from the original's `_RELEASE`. The game changes into this folder at start, as the original into its game folder.
+- `package/`: `game.ini`, `leds.cfg`, `run.sh`, `marquee.png`. `tools/make_vpk.sh` builds the package, `tools/snap.ps1` takes screenshots.
 
-## Konventionen
+## Conventions
 
-- README, STATUS, RESUME, BUILD auf Deutsch, Kommentare im Code auf Englisch.
-- Am Kern in `src/oh` nur so wenig wie nötig ändern, jede Änderung mit `VectorPie` markieren. Neue Funktionen nicht in die Originaldateien schreiben, sondern in `HGVectorPie.cpp` oder `src/vp`.
-- Spielwerte nicht schätzen: Sie kommen aus dem Original (Config-Standardwerte, Level-JSON, Lua). Was erfunden ist (Arcade, Darstellung als Linien), steht in STATUS.md unter den Einschränkungen.
-- Linien nie pro Bild umsortieren (etwa nach kürzestem Sprungweg): Eine wechselnde Reihenfolge lässt das Bild auf der Röhre wackeln. Die Reihenfolge muss von Bild zu Bild gleich bleiben.
-- Eingaben nur über advmame.rc-Namen. START 1 + START 2 zusammen ist am Automaten Exit und darf nichts auslösen. Das Service-Menü öffnet nur F2.
-- Nach Änderungen am Kern den Selbsttest laufen lassen (BUILD.md).
-- Sparstufen (`_lod` in `render.cpp`) dürfen die Füllstriche der Wände nie wegnehmen: Ohne sie ist eine breite Wand ein leerer Umriss und wird nicht als Gefahr erkannt.
-- PC-Build aus der PowerShell nur mit `C:/msys64/mingw64/bin` vorne im PATH, sonst bricht g++ ohne Meldung ab.
-- Python-Skripte mit `\n` in Strings nicht als Heredoc über die Bash schicken: Die Bash dieses Rechners macht aus `\\n` einen echten Zeilenumbruch. Skripte in eine Datei schreiben und dann ausführen.
+- Everything in the repository is in English: README, STATUS, RESUME, BUILD, code comments, texts on screen.
+- Change the core in `src/oh` as little as needed and mark each change `VectorPie`. New functions go into `HGVectorPie.cpp` or `src/vp`, not into the original files.
+- Do not guess game values: they come from the original (Config defaults, level JSON, Lua). What is invented (arcade, line drawing) is listed in STATUS.md under the limits.
+- Never re-sort lines per frame (by shortest jump, say): a changing order makes the picture wobble on the tube. The order must stay the same from frame to frame.
+- START 1 + START 2 together is the cabinet's exit and must trigger nothing. The service menu opens with F2 only.
+- Run the self test after changes to the core (BUILD.md).
+- Simpler-drawing steps (`_lod` in `render.cpp`, only with `simplify`) must never drop the walls' fill lines. A level too busy for the board goes into `LOOKS` instead.
+- Long texts are wrapped with `ui::wrap`, never cut.
+- The personal package (Steam music) is never published. A GitHub release carries the normal `.vpk` only.
+- Python scripts with `\n` in strings: do not send them through the Bash as a heredoc (this machine's Bash turns `\\n` into a real line break). Write the script to a file, then run it.
 
-## Wegweiser im Original
+## Pointers into the original
 
-- `src/SSVOpenHexagon/Core/HGUpdate.cpp`: `update`, Pulse, Beat-Pulse, Rotation, Wände, Eingabe.
-- `Core/HGGraphics.cpp`: Zeichenreihenfolge und 3D-Ebenen (Vorlage für `render.cpp`).
-- `Core/HGScripting.cpp` und `Core/LuaScripting.cpp`: die Lua-API.
-- `Core/MenuGame.cpp`: das Menü des Originals (nicht portiert).
-- `Global/Config.cpp`: Standardwerte (`X_LINKEDVALUES`).
+- `src/SSVOpenHexagon/Core/HGUpdate.cpp`: `update`, pulse, beat pulse, rotation, walls, input.
+- `Core/HGGraphics.cpp`: drawing order and 3D layers (the model for `render.cpp`).
+- `Core/HGScripting.cpp` and `Core/LuaScripting.cpp`: the Lua API.
+- `Core/MenuGame.cpp`: the original's menu (not ported).
+- `Global/Config.cpp`: defaults (`X_LINKEDVALUES`).
 
-## Nächste Schritte
+## Next steps
 
-1. Rückmeldung vom Automaten: Pointless (Wände mit Füllstrichen), Continue-Ablauf, Warnbildschirm, Arcadia verschlankt (`LOOKS` in `render.cpp`: Balken als eine Linie, kein 3D, keine Strahlen; flimmert es noch?). Weitere zu volle Level dort eintragen statt Sparstufen..
-2. Offene Aufgaben aus STATUS.md.
+1. Feedback from the cabinet: SDK 0.9 volumes (menu MUSIC and SOUND VOLUME), the music stream, Pointless (walls with fill lines), continue flow, warning screen, Arcadia slimmed (does it still flicker?).
+2. The open tasks in STATUS.md.

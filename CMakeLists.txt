@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(openhexagon VERSION 0.1.0 LANGUAGES C CXX)
+project(openhexagon VERSION 0.2.0 LANGUAGES C CXX)
 
 # Open Hexagon for VectorPie. The game core is Vittorio Romeo's own code
 # (src/oh, from reference/SSVOpenHexagon), the level packs run unchanged on
