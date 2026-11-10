@@ -92,5 +92,5 @@ Open Hexagon on the VectorPie cabinet (Pi 5, USB-DVG, WG6100, horizontal monitor
 ## Releases
 
 - `v0.1.0` (2026-10-19): `openhexagon-0.1.0.vpk`.
-- `v0.2.0` (2026-11-10): SDK 0.9.0, the cabinet menu's volumes, music as a stream; arcade rework (best attempt, continue), epilepsy warning, swap hint, wrapped texts, initials with any button and a back arrow.
+- `v0.2.0` (2026-11-10): SDK 0.9.0, the cabinet menu's music and sound volumes, music as an SDK stream, documentation in English.
 - Only the normal package goes to GitHub. The personal package with the Steam music never does.
